@@ -20,6 +20,7 @@ February 2, 2004
 Ianier has a cool job; he writes code for DJs, allowing them to do professional digital signal processing (DSP) work using consumer software like Microsoft® Windows Media® Player. Very neat work, and lucky for us, he is digging into the world of managed code and managed Microsoft® DirectX®. In this article, Ianier has built a demo (see Figure 1) that will have you pounding your very own bass beats out of your little computer speakers in minutes. It's a managed drum machine that lets you configure and play multiple channels of sampled music. The code should work without any real configuration, but you have to make sure to download and install (and then restart) the DirectX SDK (available from here) before you open and run the winrythm sample project.
 
 ![Main Screen](drummachine.jpg)
+
 Figure 1. The main form of the drum machine
 (Oh yeah, oh yeah... boom, boom, boom...)
 
@@ -45,19 +46,23 @@ I defined a streaming audio player as a component that pulls audio data from som
 The `IAudioPlayer` interface contains everything that our application should know about the player. This interface will also allow you to isolate your sound synthesis engine from the actual player implementation, which may be useful if you want to port this example to another .NET platform that uses a different playback technology.
 
 ```cs
-/// <summary> 
-/// Delegate used to fill in a buffer 
-/// </summary> public delegate void PullAudioCallback(IntPtr data, int count); 
-/// <summary> 
-/// Audio player interface 
-/// </summary> 
-public interface IAudioPlayer : IDisposable { 
-    int SamplingRate { get; } 
-    int BitsPerSample { get; } 
-    int Channels { get; } 
-    int GetBufferedSize(); 
-    void Play(PullAudioCallback onAudioData); 
-    void Stop(); 
+/// <summary>
+/// Delegate used to fill in a buffer
+/// </summary>
+public delegate void PullAudioCallback(IntPtr data, int count);
+
+/// <summary>
+/// Audio player interface
+/// </summary>
+public interface IAudioPlayer : IDisposable
+{
+    int SamplingRate { get; }
+    int BitsPerSample { get; }
+    int Channels { get; }
+
+    int GetBufferedSize();
+    void Play(PullAudioCallback onAudioData);
+    void Stop();
 }
 ```
 
@@ -73,21 +78,30 @@ As I mentioned before, a streaming buffer in DirectSound is nothing but a small 
 Let's have a look at the `StreamingPlayer` constructor:
 
 ```cs
-public StreamingPlayer(Control owner, Device device, WaveFormat format) {
-    m_Device = device; 
-    if (m_Device == null) { 
-        m_Device = new Device(); 
-        m_Device.SetCooperativeLevel( owner, CooperativeLevel.Normal); 
-        m_OwnsDevice = true; 
-    } 
-    BufferDescription desc = new BufferDescription(format); 
-    desc.BufferBytes = format.AverageBytesPerSecond; desc.ControlVolume = true; 
-    desc.GlobalFocus = true; 
-    m_Buffer = new SecondaryBuffer(desc, m_Device); 
-    m_BufferBytes = m_Buffer.Caps.BufferBytes; 
-    m_Timer = new System.Timers.Timer( BytesToMs(m_BufferBytes) / 6); 
-    m_Timer.Enabled = false; 
-    m_Timer.Elapsed += new System.Timers.ElapsedEventHandler(Timer_Elapsed); 
+public StreamingPlayer(Control owner, 
+        Device device, WaveFormat format)
+{
+    m_Device = device;
+    if (m_Device == null)
+    {
+        m_Device = new Device();
+        m_Device.SetCooperativeLevel( 
+            owner, CooperativeLevel.Normal);
+        m_OwnsDevice = true;
+    }
+
+    BufferDescription desc = new BufferDescription(format);
+    desc.BufferBytes = format.AverageBytesPerSecond;
+    desc.ControlVolume = true;
+    desc.GlobalFocus = true;
+
+    m_Buffer = new SecondaryBuffer(desc, m_Device);
+    m_BufferBytes = m_Buffer.Caps.BufferBytes;
+
+    m_Timer = new System.Timers.Timer( 
+          BytesToMs(m_BufferBytes) / 6);
+    m_Timer.Enabled = false;
+    m_Timer.Elapsed += new System.Timers.ElapsedEventHandler(Timer_Elapsed);
 }
 ```
 
@@ -96,53 +110,75 @@ The `StreamingPlayer` constructor first ensures that we have a valid DirectSound
 The implementation of `IAudioPlayer.Start` and `IAudioPlayer.Stop` are quite trivial. The `Play` method ensures that there's some audio data to play; then it enables the timer and starts playing the buffer. Symmetrically, the `Stop` method disables the timer and stops the buffer.
 
 ```cs
-public void Play( Chronotron.AudioPlayer.PullAudioCallback pullAudio) { 
-    Stop(); 
-    m_PullStream = new PullStream(pullAudio); 
-    m_Buffer.SetCurrentPosition(0); 
-    m_NextWrite = 0; 
-    Feed(m_BufferBytes); 
-    m_Timer.Enabled = true; 
-    m_Buffer.Play(0, BufferPlayFlags.Looping); 
-} 
+public void Play( 
+     Chronotron.AudioPlayer.PullAudioCallback pullAudio)
+{
+    Stop();
 
-public void Stop() { 
-    if (m_Timer != null) m_Timer.Enabled = false; 
-    if (m_Buffer != null) m_Buffer.Stop(); 
+    m_PullStream = new PullStream(pullAudio);
+
+    m_Buffer.SetCurrentPosition(0);
+    m_NextWrite = 0;
+    Feed(m_BufferBytes);
+    m_Timer.Enabled = true;
+    m_Buffer.Play(0, BufferPlayFlags.Looping);
+}
+
+public void Stop()
+{
+    if (m_Timer != null)
+        m_Timer.Enabled = false;
+    if (m_Buffer != null)
+        m_Buffer.Stop();
 }
 ```
 
 The idea is to keep the buffer continuously fed with sound data coming from the delegate. To achieve this goal, the timer periodically checks how much audio data has already been played, and adds more data to the buffer as necessary.
 
 ```cs
-private void Timer_Elapsed( object sender, System.Timers.ElapsedEventArgs e) { 
-    Feed(GetPlayedSize()); 
+private void Timer_Elapsed( 
+          object sender, 
+          System.Timers.ElapsedEventArgs e)
+{
+    Feed(GetPlayedSize());
 }
 ```
 
 The `GetPlayedSize` function uses the buffer's `PlayPosition` property to calculate how many bytes the playback cursor has advanced. Note that because the buffer plays in a loop, `GetPlayedSize` has to detect when the playback cursor wraps around, and adjust the result accordingly.
 
 ```cs
-private int GetPlayedSize() { 
-    int pos = m_Buffer.PlayPosition; 
-    return pos < m_NextWrite ? pos + m_BufferBytes - m_NextWrite : pos - m_NextWrite; 
+private int GetPlayedSize()
+{
+    int pos = m_Buffer.PlayPosition;
+    return 
+       pos < m_NextWrite ? 
+       pos + m_BufferBytes - m_NextWrite 
+       : pos - m_NextWrite;
 }
 ```
 
 The routine that fills in the buffer is called `Feed` and it's shown in the code below. This routine calls `SecondaryBuffer.Write`, which pulls the audio data from a stream and writes it to the buffer. In our case, the stream is merely a wrapper around the `PullAudioCallback` delegate that we received in the `Play` method.
 
 ```cs
-private void Feed(int bytes) { 
-    // limit latency to some milliseconds 
-    int tocopy = Math.Min(bytes, MsToBytes(MaxLatencyMs)); 
-    if (tocopy > 0) { 
-        // restore buffer 
-        if (m_Buffer.Status.BufferLost) m_Buffer.Restore(); 
-        // copy data to the buffer 
-        m_Buffer.Write(m_NextWrite, m_PullStream, tocopy, LockFlag.None); 
-        m_NextWrite += tocopy; 
-        if (m_NextWrite >= m_BufferBytes) m_NextWrite -= m_BufferBytes; 
-    } 
+private void Feed(int bytes)
+{
+    // limit latency to some milliseconds
+    int tocopy = Math.Min(bytes, MsToBytes(MaxLatencyMs));
+
+    if (tocopy > 0)
+    {
+        // restore buffer
+        if (m_Buffer.Status.BufferLost)
+            m_Buffer.Restore();
+
+        // copy data to the buffer
+        m_Buffer.Write(m_NextWrite, m_PullStream, 
+                       tocopy, LockFlag.None);
+
+        m_NextWrite += tocopy;
+        if (m_NextWrite >= m_BufferBytes)
+            m_NextWrite -= m_BufferBytes;
+    }
 }
 ```
 
@@ -155,6 +191,7 @@ A drum machine is an example of a real-time synthesizer: a set of sample wavefor
 The main elements of the drum machine are implemented in the `Patch`, `Track`, and `Mixer` classes (see Figure 2). All these are implemented in Rhythm.cs.
 
 (image missng)
+
 Figure 2. Class Diagram of Rhythm.cs
 
 The `Patch` class holds the waveform for a particular instrument. A `Patch` is initialized with a `Stream` object that contains audio data in WAV format. I won't explain here the details of reading WAV files, but you can have a look at the `WaveStream` helper class to get the whole picture.
@@ -170,27 +207,39 @@ The `Mixer` class generates the actual audio stream given a set of tracks, so it
 The hardest work is done inside the `DoMix` method, which you can see in the code below. The mixer calculates how many samples correspond to the beat duration and advances the current beat position as the output stream is synthesized. To generate a block of samples, the mixer just adds up the patches that are playing at the current beat.
 
 ```cs
-private void DoMix(int samples) { 
-    // grow mix buffer as necessary 
-    if (m_MixBuffer == null || m_MixBuffer.Length < samples) m_MixBuffer = new int[samples]; 
-    // clear mix buffer 
-    Array.Clear(m_MixBuffer, 0, m_MixBuffer.Length); 
-    int pos = 0; 
-    while(pos < samples) { 
-        // load current patches 
-        if (m_TickLeft == 0) { 
-            DoTick(); 
-            lock(m_BPMLock) m_TickLeft = m_TickPeriod; 
-        } 
-        int tomix = Math.Min(samples - pos, m_TickLeft); 
-        // mix current streams 
-        for (int i = m_Readers.Count - 1; i >= 0; i--) { 
-            PatchReader r = (PatchReader)m_Readers[i]; 
-            if (!r.Mix(m_MixBuffer, pos, tomix)) m_Readers.RemoveAt(i); 
-        } 
-        m_TickLeft -= tomix; 
-        pos += tomix; 
-    } 
+private void DoMix(int samples)
+{
+    // grow mix buffer as necessary
+    if (m_MixBuffer == null || m_MixBuffer.Length < samples)
+        m_MixBuffer = new int[samples];
+
+    // clear mix buffer
+    Array.Clear(m_MixBuffer, 0, m_MixBuffer.Length);
+
+    int pos = 0;
+    while(pos < samples)
+    {
+        // load current patches
+        if (m_TickLeft == 0)
+        {
+            DoTick();
+            lock(m_BPMLock)
+                m_TickLeft = m_TickPeriod;
+        }
+
+        int tomix = Math.Min(samples - pos, m_TickLeft);
+
+        // mix current streams
+        for (int i = m_Readers.Count - 1; i >= 0; i--)
+        {
+            PatchReader r = (PatchReader)m_Readers[i];
+            if (!r.Mix(m_MixBuffer, pos, tomix))
+                m_Readers.RemoveAt(i);
+        }
+
+        m_TickLeft -= tomix;
+        pos += tomix;
+    }
 }
 ```
 
@@ -209,25 +258,37 @@ Now that we have all the elements we need to implement the drum machine, the onl
 As you can see in the code below, the `RythmMachineApp` class does exactly this.
 
 ```cs
-public RythmMachineApp(Control control, IAudioPlayer player) { 
-    int measuresPerBeat = 2; 
-    Type resType = control.GetType(); 
-    Mixer = new Chronotron.Rythm.Mixer( player, measuresPerBeat); 
-    Mixer.Add(new Track("Bass drum", new Patch(resType, "media.bass.wav"), TrackLength)); 
-    Mixer.Add(new Track("Snare drum", new Patch(resType, "media.snare.wav"), TrackLength)); 
-    Mixer.Add(new Track("Closed hat", new Patch(resType, "media.closed.wav"), TrackLength)); 
-    Mixer.Add(new Track("Open hat", new Patch(resType, "media.open.wav"), TrackLength)); 
-    Mixer.Add(new Track("Toc", new Patch(resType, "media.rim.wav"), TrackLength)); 
-    // Init with any preset 
-    Mixer["Bass drum"].Init(new byte[] { 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0 } ); 
-    Mixer["Snare drum"].Init(new byte[] { 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0 } ); 
-    Mixer["Closed hat"].Init(new byte[] { 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0 } ); 
-    Mixer["Open hat"].Init(new byte[] { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1 } ); 
-    BuildUI(control); 
-    m_Timer = new Timer(); 
-    m_Timer.Interval = 250; 
-    m_Timer.Tick += new EventHandler(m_Timer_Tick); 
-    m_Timer.Enabled = true; 
+public RythmMachineApp(Control control, IAudioPlayer player)
+{
+    int measuresPerBeat = 2;
+
+    Type resType = control.GetType();
+    Mixer = new Chronotron.Rythm.Mixer(
+          player, measuresPerBeat);
+    Mixer.Add(new Track("Bass drum", 
+          new Patch(resType, "media.bass.wav"), TrackLength));
+    Mixer.Add(new Track("Snare drum", 
+          new Patch(resType, "media.snare.wav"), TrackLength));
+    Mixer.Add(new Track("Closed hat", 
+          new Patch(resType, "media.closed.wav"), TrackLength));
+    Mixer.Add(new Track("Open hat", 
+          new Patch(resType, "media.open.wav"), TrackLength));
+    Mixer.Add(new Track("Toc", 
+          new Patch(resType, "media.rim.wav"), TrackLength));
+    // Init with any preset
+    Mixer["Bass drum"].Init(new byte[] 
+          { 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0 } );
+    Mixer["Snare drum"].Init(new byte[] 
+          { 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0 } );
+    Mixer["Closed hat"].Init(new byte[] 
+          { 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0 } );
+    Mixer["Open hat"].Init(new byte[] 
+          { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1 } );
+    BuildUI(control);
+    m_Timer = new Timer();
+    m_Timer.Interval = 250;
+    m_Timer.Tick += new EventHandler(m_Timer_Tick);
+    m_Timer.Enabled = true;
 }
 ```
 
