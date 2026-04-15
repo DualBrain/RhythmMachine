@@ -19,7 +19,7 @@ February 2, 2004
 
 Ianier has a cool job; he writes code for DJs, allowing them to do professional digital signal processing (DSP) work using consumer software like Microsoft® Windows Media® Player. Very neat work, and lucky for us, he is digging into the world of managed code and managed Microsoft® DirectX®. In this article, Ianier has built a demo (see Figure 1) that will have you pounding your very own bass beats out of your little computer speakers in minutes. It's a managed drum machine that lets you configure and play multiple channels of sampled music. The code should work without any real configuration, but you have to make sure to download and install (and then restart) the DirectX SDK (available from here) before you open and run the winrythm sample project.
 
-[!Main Screen](drummachine.jpg)
+![Main Screen](drummachine.jpg)
 Figure 1. The main form of the drum machine
 (Oh yeah, oh yeah... boom, boom, boom...)
 
